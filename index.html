@@ -11,6 +11,14 @@ body.dark .feedback.incorrect,body.dark .answers button.wrong-answer{background:
 body.dark .feedback.correct,body.dark .answers button.correct-answer{background:#164631!important;color:#effff4!important}
 .lesson-tip{border-left:5px solid #9587dd;padding:12px;background:var(--bg);border-radius:8px}
 
+/* Textes à trous : sélection dans la phrase, sans glisser-déposer */
+.blank-select{display:inline-block;max-width:100%;min-width:150px;padding:9px 12px;border:3px solid #6255b6;border-radius:10px;background:white;color:#203047;font:inherit;vertical-align:middle}
+.blank-select.correct-answer{border-color:#16724c;background:#e5f7ed;color:#105c3d}
+.blank-select.wrong-answer{border-color:#b42318;background:#fff0ee;color:#8f1d14}
+.blank-sentence{font-size:1.15em;line-height:2.4;padding:15px;border-radius:12px;background:var(--bg)}
+body.dark .blank-select{background:#243348;color:#fff}
+body.dark .blank-select.wrong-answer{background:#511d24;color:#fff}
+body.dark .blank-select.correct-answer{background:#164631;color:#fff}
 /* Activités guidées : accessibles sans glisser-déposer */
 .activity-option{display:block;width:100%;text-align:left;margin:9px 0}.activity-option[disabled]{opacity:1}.activity-option.correct-answer{border:3px solid #13834f;background:#e1f7eb;color:#104c32}.activity-option.wrong-answer{border:3px solid #b42332;background:#ffe4e6;color:#8b1525}.activity-feedback{padding:16px;margin:16px 0;border-radius:12px;border:2px solid}.activity-feedback.correct{background:#e1f7eb;color:#104c32;border-color:#13834f}.activity-feedback.incorrect{background:#ffe4e6;color:#8b1525;border-color:#b42332}body.dark .activity-feedback.correct,body.dark .activity-option.correct-answer{background:#153d30;color:#eafff2}body.dark .activity-feedback.incorrect,body.dark .activity-option.wrong-answer{background:#4b202a;color:#ffe7eb}.activity-text{font-size:1.12em;font-weight:600}.activity-panel{max-width:760px} .activity-help{border-left:5px solid var(--accent);padding:12px;background:var(--bg)}
 </style></head><body><a href="#content" class="skip">Aller au contenu</a><header><div class="brand"><img src="logo-cerene.png" alt="CERENE — Écoles passerelles dédiées aux DYS" class="brand-logo"><div><h1>Révisions 3e · Objectif Brevet — Version 5</h1><p>À ton rythme, étape par étape</p></div></div></header><main><div class="toolbar" aria-label="Options d'accessibilité"><button id="dys" aria-pressed="false">Mode DYS</button><button id="size" aria-pressed="false">Agrandir le texte</button><button id="contrast" aria-pressed="false">Contraste renforcé</button><button id="read">🔊 Lire la page</button><button id="stop">⏹ Arrêter la lecture</button></div><nav aria-label="Navigation principale"><button id="home" class="primary">Accueil</button><button id="progress">Mes progrès</button></nav><section id="content" aria-live="polite"></section></main><footer>Un outil d'entraînement CERENE • Fiches et quiz d’entraînement, à compléter avec les cours des professeurs • Progrès enregistrés uniquement sur cet appareil</footer><script>
@@ -43,25 +51,36 @@ const ACTIVITIES={
  {type:'Vrai ou faux',chapter:'La France et l’Union européenne',question:'Tous les États membres de l’Union européenne utilisent l’euro.',options:['Vrai','Faux'],correct:1,explain:'Certains États membres de l’Union européenne utilisent encore leur propre monnaie.'}
  ]
 };
+const BLANKS={
+ 'Français':{before:'Dans « Les enfants jouent », le mot « Les » est un ',after:'.'},
+ 'Mathématiques':{before:'Pour résoudre x + 6 = 10, on doit ',after:' 6 des deux côtés.'},
+ 'Histoire-géographie':{before:'La Seconde Guerre mondiale commence en Europe en ',after:'.'}
+};
+let blanksOnly=false;
 let activitySubject='Français',activityIndex=0,activityScore=0,activityAnswered=false;
-function startActivities(s){activitySubject=s;activityIndex=0;activityScore=0;page='activities';render()}
+function startActivities(s,onlyBlanks=false){activitySubject=s;blanksOnly=onlyBlanks;activityIndex=0;activityScore=0;page='activities';render()}
 function renderActivities(){
- const items=ACTIVITIES[activitySubject],item=items[activityIndex];
+ const items=blanksOnly?ACTIVITIES[activitySubject].filter(a=>a.type==='Texte à trous'):ACTIVITIES[activitySubject],item=blanksOnly?items[0]:items[activityIndex];
  if(page==='activityResult'){
  el.innerHTML=`<article class="panel activity-panel"><h2>Activités terminées 🌱</h2><p>Tu as réussi <strong>${activityScore} sur ${items.length}</strong> activités.</p><p>Tu peux réessayer à ton rythme, sans limite de temps.</p><div class="actions"><button id="activityAgain" class="primary">Recommencer</button><button id="activityHome">Accueil</button></div></article>`;
- document.getElementById('activityAgain').onclick=()=>startActivities(activitySubject);
+ document.getElementById('activityAgain').onclick=()=>startActivities(activitySubject,blanksOnly);
  document.getElementById('activityHome').onclick=()=>setPage('home');return;
  }
  activityAnswered=false;
- el.innerHTML=`<button id="activityBack">← Accueil</button><article class="panel activity-panel"><p class="tag">${activitySubject} · ${item.chapter}</p><p class="tag">Activité ${activityIndex+1} sur ${items.length} · ${item.type}</p><progress value="${activityIndex}" max="${items.length}" aria-label="Progression"></progress><h2>${item.type}</h2><p class="activity-help">Lis la consigne. Choisis une réponse. Tu peux prendre ton temps.</p><p class="activity-text">${item.question}</p><div id="activityOptions" class="answers">${item.options.map((o,i)=>`<button class="activity-option" data-choice="${i}">${o}</button>`).join('')}</div><div id="activityFeedback" aria-live="polite"></div><button class="primary hidden" id="activityNext">${activityIndex===items.length-1?'Voir mon résultat':'Activité suivante →'}</button></article>`;
+ const isBlank=item.type==='Texte à trous';const blank=BLANKS[activitySubject];
+ const blankHtml=isBlank?`<p class="activity-help">Choisis le mot manquant dans la phrase, puis valide ta réponse.</p><div class="blank-sentence"><label for="blankAnswer">${blank.before}</label><select id="blankAnswer" class="blank-select" aria-label="Mot manquant"><option value="">Choisir…</option>${item.options.map((o,i)=>`<option value="${i}">${o}</option>`).join('')}</select><span>${blank.after}</span></div><button id="validateBlank" class="primary">Vérifier ma réponse</button>`:'';
+ el.innerHTML=`<button id="activityBack">← Accueil</button><article class="panel activity-panel"><p class="tag">${activitySubject} · ${item.chapter}</p><p class="tag">Activité ${activityIndex+1} sur ${items.length} · ${item.type}</p><progress value="${activityIndex}" max="${items.length}" aria-label="Progression"></progress><h2>${item.type}</h2><p class="activity-help">Lis la consigne. Choisis une réponse. Tu peux prendre ton temps.</p>${isBlank?blankHtml:`<p class="activity-text">${item.question}</p><div id="activityOptions" class="answers">${item.options.map((o,i)=>`<button class="activity-option" data-choice="${i}">${o}</button>`).join('')}</div>`}<div id="activityFeedback" aria-live="polite"></div><button class="primary hidden" id="activityNext">${activityIndex===items.length-1?'Voir mon résultat':'Activité suivante →'}</button></article>`;
  document.getElementById('activityBack').onclick=()=>setPage('home');
- el.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{
+ if(isBlank){
+ const select=document.getElementById('blankAnswer');const validate=document.getElementById('validateBlank');
+ validate.onclick=()=>{if(activityAnswered||select.value===''){if(select.value==='')select.focus();return}activityAnswered=true;const ok=Number(select.value)===item.correct;if(ok)activityScore++;select.classList.add(ok?'correct-answer':'wrong-answer');select.disabled=true;validate.disabled=true;document.getElementById('activityFeedback').innerHTML=`<div class="activity-feedback ${ok?'correct':'incorrect'}" role="status"><strong>${ok?'✓ Bonne réponse !':'✕ Mauvaise réponse'}</strong><p>Réponse attendue : <strong>${item.options[item.correct]}</strong>.</p><p>${item.explain}</p></div>`;document.getElementById('activityNext').classList.remove('hidden')};
+ }else el.querySelectorAll('[data-choice]').forEach(b=>b.onclick=()=>{
  if(activityAnswered)return;activityAnswered=true;const choice=Number(b.dataset.choice),ok=choice===item.correct;if(ok)activityScore++;
  el.querySelectorAll('[data-choice]').forEach(btn=>{btn.disabled=true;if(Number(btn.dataset.choice)===item.correct){btn.classList.add('correct-answer');btn.textContent+=' ✓ Bonne réponse'}else if(btn===b){btn.classList.add('wrong-answer');btn.textContent+=' ✕ Mauvaise réponse'}});
  document.getElementById('activityFeedback').innerHTML=`<div class="activity-feedback ${ok?'correct':'incorrect'}" role="status"><strong>${ok?'✓ Bonne réponse !':'✕ Mauvaise réponse'}</strong><p>Réponse attendue : <strong>${item.options[item.correct]}</strong>.</p><p>${item.explain}</p></div>`;
  document.getElementById('activityNext').classList.remove('hidden');
  });
- document.getElementById('activityNext').onclick=()=>{activityIndex++;if(activityIndex>=items.length)page='activityResult';render()};
+ document.getElementById('activityNext').onclick=()=>{if(blanksOnly){page='activityResult'}else{activityIndex++;if(activityIndex>=items.length)page='activityResult'}render()};
 }
 const originalRender=render;
 render=function(){if(page==='activities'||page==='activityResult'){renderActivities();return}originalRender();if(page==='home'){
@@ -70,6 +89,11 @@ render=function(){if(page==='activities'||page==='activityResult'){renderActivit
  const buttons=document.createElement('div');buttons.className='actions';
  Object.keys(ACTIVITIES).forEach(s=>{const b=document.createElement('button');b.textContent='🧩 '+s;b.onclick=()=>startActivities(s);buttons.appendChild(b)});
  el.append(heading,p,buttons);
+ const blankHeading=document.createElement('h2');blankHeading.textContent='✏️ Textes à trous';
+ const blankIntro=document.createElement('p');blankIntro.textContent='Complète directement la phrase en choisissant le mot manquant.';
+ const blankButtons=document.createElement('div');blankButtons.className='actions';
+ Object.keys(BLANKS).forEach(s=>{const b=document.createElement('button');b.textContent='✏️ '+s;b.onclick=()=>startActivities(s,true);blankButtons.appendChild(b)});
+ el.append(blankHeading,blankIntro,blankButtons);
  }};
 
 </script></body></html>
