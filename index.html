@@ -60,14 +60,14 @@ let blanksOnly=false;
 let activitySubject='Français',activityIndex=0,activityScore=0,activityAnswered=false;
 function startActivities(s,onlyBlanks=false){activitySubject=s;blanksOnly=onlyBlanks;activityIndex=0;activityScore=0;page='activities';render()}
 function renderActivities(){
- const items=blanksOnly?ACTIVITIES[activitySubject].filter(a=>a.type==='Texte à trous'):ACTIVITIES[activitySubject],item=blanksOnly?items[0]:items[activityIndex];
+ const items=blanksOnly?ACTIVITIES[activitySubject].filter(a=>a.type==='Texte à trous'):ACTIVITIES[activitySubject],item=items[activityIndex];
  if(page==='activityResult'){
  el.innerHTML=`<article class="panel activity-panel"><h2>Activités terminées 🌱</h2><p>Tu as réussi <strong>${activityScore} sur ${items.length}</strong> activités.</p><p>Tu peux réessayer à ton rythme, sans limite de temps.</p><div class="actions"><button id="activityAgain" class="primary">Recommencer</button><button id="activityHome">Accueil</button></div></article>`;
  document.getElementById('activityAgain').onclick=()=>startActivities(activitySubject,blanksOnly);
  document.getElementById('activityHome').onclick=()=>setPage('home');return;
  }
  activityAnswered=false;
- const isBlank=item.type==='Texte à trous';const blank=BLANKS[activitySubject];
+ const isBlank=item.type==='Texte à trous';const blank=item.blank||BLANKS[activitySubject];
  const blankHtml=isBlank?`<p class="activity-help">Choisis le mot manquant dans la phrase, puis valide ta réponse.</p><div class="blank-sentence"><label for="blankAnswer">${blank.before}</label><select id="blankAnswer" class="blank-select" aria-label="Mot manquant"><option value="">Choisir…</option>${item.options.map((o,i)=>`<option value="${i}">${o}</option>`).join('')}</select><span>${blank.after}</span></div><button id="validateBlank" class="primary">Vérifier ma réponse</button>`:'';
  el.innerHTML=`<button id="activityBack">← Accueil</button><article class="panel activity-panel"><p class="tag">${activitySubject} · ${item.chapter}</p><p class="tag">Activité ${activityIndex+1} sur ${items.length} · ${item.type}</p><progress value="${activityIndex}" max="${items.length}" aria-label="Progression"></progress><h2>${item.type}</h2><p class="activity-help">Lis la consigne. Choisis une réponse. Tu peux prendre ton temps.</p>${isBlank?blankHtml:`<p class="activity-text">${item.question}</p><div id="activityOptions" class="answers">${item.options.map((o,i)=>`<button class="activity-option" data-choice="${i}">${o}</button>`).join('')}</div>`}<div id="activityFeedback" aria-live="polite"></div><button class="primary hidden" id="activityNext">${activityIndex===items.length-1?'Voir mon résultat':'Activité suivante →'}</button></article>`;
  document.getElementById('activityBack').onclick=()=>setPage('home');
@@ -80,7 +80,7 @@ function renderActivities(){
  document.getElementById('activityFeedback').innerHTML=`<div class="activity-feedback ${ok?'correct':'incorrect'}" role="status"><strong>${ok?'✓ Bonne réponse !':'✕ Mauvaise réponse'}</strong><p>Réponse attendue : <strong>${item.options[item.correct]}</strong>.</p><p>${item.explain}</p></div>`;
  document.getElementById('activityNext').classList.remove('hidden');
  });
- document.getElementById('activityNext').onclick=()=>{if(blanksOnly){page='activityResult'}else{activityIndex++;if(activityIndex>=items.length)page='activityResult'}render()};
+ document.getElementById('activityNext').onclick=()=>{activityIndex++;if(activityIndex>=items.length)page='activityResult';render()};
 }
 const originalRender=render;
 render=function(){if(page==='activities'||page==='activityResult'){renderActivities();return}originalRender();if(page==='home'){
@@ -95,5 +95,26 @@ render=function(){if(page==='activities'||page==='activityResult'){renderActivit
  Object.keys(BLANKS).forEach(s=>{const b=document.createElement('button');b.textContent='✏️ '+s;b.onclick=()=>startActivities(s,true);blankButtons.appendChild(b)});
  el.append(blankHeading,blankIntro,blankButtons);
  }};
+
+
+// Version 6 : activités complémentaires, conservant toutes les rubriques précédentes.
+ACTIVITIES['Français'].push(
+ {type:'Texte à trous',chapter:'Accord sujet-verbe',question:'Les élèves … leur leçon.',blank:{before:'Les élèves ',after:' leur leçon.'},options:['révisent','révise','révises'],correct:0,explain:'« Les élèves » est un sujet pluriel : le verbe prend -ent.'},
+ {type:'Texte à trous',chapter:'Nature des mots',question:'Dans « une maison bleue », « bleue » est un …',blank:{before:'Dans « une maison bleue », « bleue » est un ',after:'.'},options:['adjectif qualificatif','verbe','pronom'],correct:0,explain:'« Bleue » apporte une précision sur le nom « maison ».'},
+ {type:'Vrai ou faux',chapter:'Figures de style',question:'Dans « cet homme est un lion », il y a une comparaison avec « comme ».',options:['Vrai','Faux'],correct:1,explain:'C’est une métaphore : il n’y a pas d’outil de comparaison.'},
+ {type:'Association',chapter:'Grammaire',question:'À quoi sert un complément circonstanciel de lieu ?',options:['À préciser où se déroule une action','À nommer le sujet','À indiquer le temps du verbe'],correct:0,explain:'Il répond souvent à la question « où ? ».'}
+);
+ACTIVITIES['Mathématiques'].push(
+ {type:'Texte à trous',chapter:'Pourcentages',question:'50 % de 80 = …',blank:{before:'50 % de 80 = ',after:'.'},options:['40','20','60'],correct:0,explain:'50 % représente la moitié : 80 ÷ 2 = 40.'},
+ {type:'Texte à trous',chapter:'Calcul littéral',question:'Si x = 3, alors 2x + 1 = …',blank:{before:'Si x = 3, alors 2x + 1 = ',after:'.'},options:['7','6','9'],correct:0,explain:'2 × 3 + 1 = 7.'},
+ {type:'Calcul guidé',chapter:'Équations',question:'Pour résoudre 3x = 15, quelle opération faut-il faire ?',options:['Diviser par 3','Soustraire 3','Multiplier par 3'],correct:0,explain:'On divise les deux membres par 3 : x = 5.'},
+ {type:'Vrai ou faux',chapter:'Géométrie',question:'La somme des angles d’un triangle est égale à 180°.',options:['Vrai','Faux'],correct:0,explain:'Dans la géométrie plane étudiée au collège, la somme est de 180°.'}
+);
+ACTIVITIES['Histoire-géographie'].push(
+ {type:'Texte à trous',chapter:'Première Guerre mondiale',question:'L’armistice de 1918 est signé le … novembre.',blank:{before:'L’armistice de 1918 est signé le ',after:' novembre.'},options:['11','8','18'],correct:0,explain:'Le 11 novembre 1918 marque la fin des combats sur le front occidental.'},
+ {type:'Texte à trous',chapter:'Institutions françaises',question:'Le président de la République est élu pour … ans.',blank:{before:'Le président de la République est élu pour ',after:' ans.'},options:['5','6','7'],correct:0,explain:'La durée du mandat présidentiel est de cinq ans.'},
+ {type:'Association',chapter:'Géographie de la France',question:'Que désigne une aire urbaine dans le vocabulaire traditionnel du collège ?',options:['Une ville et les espaces liés à ses déplacements domicile-travail','Uniquement un centre-ville','Une région sans habitants'],correct:0,explain:'Cette notion relie un pôle urbain et sa couronne périurbaine.'},
+ {type:'Vrai ou faux',chapter:'Seconde Guerre mondiale',question:'La Seconde Guerre mondiale se termine en 1945.',options:['Vrai','Faux'],correct:0,explain:'La guerre se termine en Europe en mai et dans le monde en septembre 1945.'}
+);
 
 </script></body></html>
